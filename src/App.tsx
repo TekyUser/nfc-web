@@ -1,4 +1,5 @@
-import { Authenticated, Unauthenticated } from "convex/react";
+import { Authenticated, Unauthenticated, useQuery } from "convex/react";
+import { api } from "../convex/_generated/api";
 import { SignInForm } from "./SignInForm";
 import { SignOutButton } from "./SignOutButton";
 import { Toaster } from "sonner";
@@ -25,21 +26,10 @@ export default function App() {
     <div className="min-h-screen flex flex-col bg-gray-50">
       <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm h-16 flex justify-between items-center border-b shadow-sm px-4">
         <h2 className="text-xl font-semibold text-primary">NFC ID System</h2>
-        <Authenticated>
-          <SignOutButton />
-        </Authenticated>
+        <SignOutButton />
       </header>
       <main className="flex-1 p-8">
-        <Unauthenticated>
-          <div className="max-w-md mx-auto text-center">
-            <h1 className="text-4xl font-bold text-primary mb-4">NFC ID System</h1>
-            <p className="text-xl text-secondary mb-8">Sign in to access the system</p>
-            <SignInForm />
-          </div>
-        </Unauthenticated>
-        <Authenticated>
-          <Content nfcIdFromUrl={nfcIdFromUrl} />
-        </Authenticated>
+        <Content nfcIdFromUrl={nfcIdFromUrl} />
       </main>
       <Toaster />
     </div>
@@ -47,26 +37,49 @@ export default function App() {
 }
 
 function Content({ nfcIdFromUrl }: { nfcIdFromUrl: string | null }) {
+  const loggedInUser = useQuery(api.auth.loggedInUser);
+  const userRole = useQuery(api.nfcCards.getCurrentUserRole);
+
+  if (loggedInUser === undefined || userRole === undefined) {
+    return (
+      <div className="flex justify-center items-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="mb-8 text-center">
-        <h1 className="text-4xl font-bold text-primary mb-2">NFC ID Card System</h1>
-        <p className="text-xl text-secondary">
-          Welcome to the NFC ID system
-        </p>
-      </div>
+      <Authenticated>
+        <div className="mb-8 text-center">
+          <h1 className="text-4xl font-bold text-primary mb-2">NFC ID Card System</h1>
+          <p className="text-xl text-secondary">
+            Welcome, {loggedInUser?.email} ({userRole})
+          </p>
+        </div>
 
-      <RoleSetup />
-      
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="space-y-6">
-          <NFCScanner initialNfcId={nfcIdFromUrl} />
-        </div>
+        {userRole === null && <RoleSetup />}
         
-        <div className="space-y-6">
-          <AdminPanel />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="space-y-6">
+            <NFCScanner initialNfcId={nfcIdFromUrl} />
+          </div>
+          
+          {userRole === "admin" && (
+            <div className="space-y-6">
+              <AdminPanel />
+            </div>
+          )}
         </div>
-      </div>
+      </Authenticated>
+
+      <Unauthenticated>
+        <div className="max-w-md mx-auto text-center">
+          <h1 className="text-4xl font-bold text-primary mb-4">NFC ID System</h1>
+          <p className="text-xl text-secondary mb-8">Sign in to access the system</p>
+          <SignInForm />
+        </div>
+      </Unauthenticated>
     </div>
   );
 }
