@@ -1,20 +1,41 @@
-import { useAuth } from '../hooks/useAuth';
-import { toast } from 'sonner';
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import { toast } from "sonner";
 
 export function RoleSetup() {
-  const { authState, setUserRole } = useAuth();
+  const userRole = useQuery(api.nfcCards.getCurrentUserRole);
+  const setUserRole = useMutation(api.nfcCards.setUserRole);
+  const currentUser = useQuery(api.auth.loggedInUser);
 
-  const handleSetAdmin = () => {
-    setUserRole('admin');
-    toast.success('You are now an admin!');
+  const handleSetAdmin = async () => {
+    if (!currentUser) return;
+    
+    try {
+      await setUserRole({
+        userId: currentUser._id,
+        role: "admin",
+      });
+      toast.success("You are now an admin!");
+    } catch (error: any) {
+      toast.error(error.message);
+    }
   };
 
-  const handleSetUser = () => {
-    setUserRole('user');
-    toast.success('Role set to user');
+  const handleSetUser = async () => {
+    if (!currentUser) return;
+    
+    try {
+      await setUserRole({
+        userId: currentUser._id,
+        role: "user",
+      });
+      toast.success("Role set to user");
+    } catch (error: any) {
+      toast.error(error.message);
+    }
   };
 
-  if (!authState.user || authState.user.role !== 'user') {
+  if (!currentUser || userRole !== "user") {
     return null;
   }
 

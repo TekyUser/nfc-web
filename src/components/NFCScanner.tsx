@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { useNFCCards } from "../hooks/useNFCCards";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
-import { NFCCard } from "../types";
 
 interface NFCScannerProps {
   initialNfcId?: string | null;
@@ -12,9 +12,11 @@ export function NFCScanner({ initialNfcId }: NFCScannerProps) {
   const [isScanning, setIsScanning] = useState(false);
   const [isNFCSupported, setIsNFCSupported] = useState(false);
   const [nfcReader, setNfcReader] = useState<any>(null);
-  const [cardInfo, setCardInfo] = useState<NFCCard | null | undefined>(undefined);
   
-  const { getCardInfo } = useNFCCards();
+  const cardInfo = useQuery(
+    api.nfcCards.getCardInfo,
+    nfcId ? { nfcId } : "skip"
+  );
 
   // Set initial NFC ID from URL if provided
   useEffect(() => {
@@ -30,16 +32,6 @@ export function NFCScanner({ initialNfcId }: NFCScannerProps) {
       setIsNFCSupported(true);
     }
   }, []);
-
-  // Look up card info when NFC ID changes
-  useEffect(() => {
-    if (nfcId.trim()) {
-      const info = getCardInfo(nfcId);
-      setCardInfo(info);
-    } else {
-      setCardInfo(undefined);
-    }
-  }, [nfcId, getCardInfo]);
 
   const handleManualScan = async () => {
     if (!nfcId.trim()) {
@@ -259,6 +251,14 @@ export function NFCScanner({ initialNfcId }: NFCScannerProps) {
                 Stop Scanning
               </button>
             )}
+          </div>
+        )}
+
+        {/* Loading State */}
+        {cardInfo === undefined && nfcId && !isScanning && (
+          <div className="text-center py-4">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
+            <p className="text-sm text-gray-600 mt-2">Loading card information...</p>
           </div>
         )}
         

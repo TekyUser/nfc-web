@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useNFCCards } from "../hooks/useNFCCards";
-import { useAuth } from "../hooks/useAuth";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
 
 export function AdminPanel() {
@@ -15,9 +15,10 @@ export function AdminPanel() {
     employeeId: "",
   });
 
-  const { assignCard, deactivateCard, getActiveCards } = useNFCCards();
-  const { authState } = useAuth();
-  const allCards = getActiveCards();
+  const assignCard = useMutation(api.nfcCards.assignCard);
+  const deactivateCard = useMutation(api.nfcCards.deactivateCard);
+  const allCards = useQuery(api.nfcCards.listAllCards);
+  const userRole = useQuery(api.nfcCards.getCurrentUserRole);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +28,7 @@ export function AdminPanel() {
     }
 
     try {
-      assignCard({
+      await assignCard({
         nfcId: formData.nfcId,
         holderName: formData.holderName,
         holderEmail: formData.holderEmail || undefined,
@@ -35,8 +36,6 @@ export function AdminPanel() {
         department: formData.department || undefined,
         position: formData.position || undefined,
         employeeId: formData.employeeId || undefined,
-        isActive: true,
-        assignedBy: authState.user?.email || 'Unknown',
       });
       
       toast.success("NFC card assigned successfully!");
@@ -58,13 +57,28 @@ export function AdminPanel() {
   const handleDeactivate = async (cardId: string) => {
     if (confirm("Are you sure you want to deactivate this card?")) {
       try {
-        deactivateCard(cardId);
+        await deactivateCard({ cardId: cardId as any });
         toast.success("Card deactivated successfully");
       } catch (error: any) {
         toast.error(error.message);
       }
     }
   };
+
+  // Don't show admin panel if user is not an admin
+  if (userRole !== "admin") {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="text-center py-8">
+          <h2 className="text-xl font-semibold text-gray-600 mb-2">Admin Panel</h2>
+          <p className="text-gray-500">Admin access required</p>
+          <p className="text-sm text-gray-400 mt-2">
+            Contact an administrator to assign NFC cards
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-lg shadow-sm border p-6">
@@ -177,12 +191,14 @@ export function AdminPanel() {
 
         <div>
           <h3 className="text-lg font-semibold mb-4">Assigned Cards</h3>
-          {allCards.length === 0 ? (
+          {allCards === undefined ? (
+            <div className="text-center py-4">Loading...</div>
+          ) : allCards.length === 0 ? (
             <div className="text-center py-4 text-gray-500">No cards assigned yet</div>
           ) : (
             <div className="space-y-3">
               {allCards.map((card) => (
-                <div key={card.id} className="border rounded-lg p-4 bg-gray-50">
+                <div key={card._id} className="border rounded-lg p-4 bg-gray-50">
                   <div className="flex justify-between items-start">
                     <div>
                       <h4 className="font-semibold">{card.holderName}</h4>
@@ -198,7 +214,7 @@ export function AdminPanel() {
                       </p>
                     </div>
                     <button
-                      onClick={() => handleDeactivate(card.id)}
+                      onClick={() => handleDeactivate(card._id)}
                       className="text-red-600 hover:text-red-800 text-sm"
                     >
                       Deactivate
